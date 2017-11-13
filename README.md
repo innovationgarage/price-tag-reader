@@ -18,3 +18,11 @@
 - thresholding
 - morphological operations
 - contour extraction
+
+### Segmentation-free DNN solutions in the literature:
+- https://arxiv.org/pdf/1312.6082.pdf
+- https://arxiv.org/abs/1706.03581
+- https://arxiv.org/abs/1701.06439
+- https://arxiv.org/abs/1612.01294
+- https://arxiv.org/abs/1412.1842
+- https://arxiv.org/abs/1411.0126
