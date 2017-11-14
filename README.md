@@ -29,6 +29,8 @@
 
 ### Barcde reading solutions in the literature:
 - http://vbn.aau.dk/files/261392843/yolo_barcode.pdf
+- http://www.iaeng.org/publication/WCE2017/WCE2017_pp501-507.pdf
+- http://artelab.dicom.uninsubria.it/projects/demos/barcode_hough/index.php#output
 - https://users.soe.ucsc.edu/~manduchi/papers/barcodes.pdf
 - ~~https://www.ijser.org/researchpaper/Robust-Algorithm-for-Developing-Barcode-Recognition-System-using-Web-cam.pdf~~
 - https://ai2-s2-pdfs.s3.amazonaws.com/28ea/c9e91fb7639b936dc8a63c249011db337264.pdf
