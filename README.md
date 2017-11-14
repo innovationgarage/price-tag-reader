@@ -19,10 +19,16 @@
 - morphological operations
 - contour extraction
 
-### Segmentation-free DNN solutions in the literature:
+### Segmentation-free DNN solutions for multi-digit recognition in the literature:
 - https://arxiv.org/pdf/1312.6082.pdf
 - https://arxiv.org/abs/1706.03581
 - https://arxiv.org/abs/1701.06439
 - https://arxiv.org/abs/1612.01294
 - https://arxiv.org/abs/1412.1842
 - https://arxiv.org/abs/1411.0126
+
+### Barcde reading solutions in the literature:
+- https://users.soe.ucsc.edu/~manduchi/papers/barcodes.pdf
+- https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3190667/
+- https://www.ijser.org/researchpaper/Robust-Algorithm-for-Developing-Barcode-Recognition-System-using-Web-cam.pdf
+- https://ai2-s2-pdfs.s3.amazonaws.com/28ea/c9e91fb7639b936dc8a63c249011db337264.pdf
