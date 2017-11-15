@@ -34,3 +34,4 @@
 - https://users.soe.ucsc.edu/~manduchi/papers/barcodes.pdf
 - ~~https://www.ijser.org/researchpaper/Robust-Algorithm-for-Developing-Barcode-Recognition-System-using-Web-cam.pdf~~
 - https://ai2-s2-pdfs.s3.amazonaws.com/28ea/c9e91fb7639b936dc8a63c249011db337264.pdf
+- http://www.comm.utoronto.ca/~dkundur/course_info/real-time-DSP/implementation/Demo_Barcode_Recognition.pdf
