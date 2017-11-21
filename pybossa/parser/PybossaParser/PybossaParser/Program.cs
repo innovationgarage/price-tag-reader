@@ -64,6 +64,8 @@ namespace PybossaParser
                         Console.WriteLine("Image without areas!");
                     else
                     {
+                        var i = 0;
+
                         foreach (Match area in mAreas)
                         {
                             // Get image
@@ -103,7 +105,7 @@ namespace PybossaParser
                                     img.Save(outputImageCropsSource);
 
                                 // Save crop
-                                CropImage(img, rect).Save(Path.Combine(outputImageCropsFolder, $"crop_{id}.jpg"));
+                                CropImage(img, rect).Save(Path.Combine(outputImageCropsFolder, $"crop_{id}_{i++}.jpg"));
                                
                             }
                         }
