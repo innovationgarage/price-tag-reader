@@ -47,8 +47,13 @@ namespace PybossaParser
                 }
             }
 
+            // Delete old 
+            var outputFolderCropsInsideOutput = Path.Combine(outputFolder, outputFolderCrops);
+            if (Directory.Exists(outputFolderCropsInsideOutput))
+                Directory.Delete(outputFolderCropsInsideOutput);
+
             // Parsing results
-            var output = new List<string>();
+            var output = new List<TaskEntry>();
             Console.WriteLine("Processing tasks");
             foreach (var line in File.ReadAllLines(Path.Combine(inputFolder, inputTaskRunFile)))
             {
@@ -88,15 +93,8 @@ namespace PybossaParser
                                 // Get correct proportions
                                 var rect = new RectangleF(float.Parse(area.Groups["x"].Value) * width, float.Parse(area.Groups["y"].Value) * height, float.Parse(area.Groups["width"].Value) * width, float.Parse(area.Groups["height"].Value) * height);
 
-                                // Using ['filename', 'width', 'height', 'class', 'xmin', 'ymin', 'xmax', 'ymax']
-                                output.Add($"['{filename}', '{width}', '{height}', '{type}', '{(int)rect.Left}', '{(int)rect.Top}', '{(int)rect.Right}', '{(int)rect.Bottom}']");
-
                                 // Cropping the picture
-                                var c = Path.Combine(outputFolder, outputFolderCrops);
-                                if (!Directory.Exists(c))
-                                    Directory.CreateDirectory(c);
-
-                                var outputImageCropsFolder = Path.Combine(c, Path.GetFileNameWithoutExtension(imageFile));
+                                var outputImageCropsFolder = Path.Combine(outputFolderCropsInsideOutput, Path.GetFileNameWithoutExtension(imageFile));
                                 if (!Directory.Exists(outputImageCropsFolder))
                                     Directory.CreateDirectory(outputImageCropsFolder);
 
@@ -105,8 +103,13 @@ namespace PybossaParser
                                     img.Save(outputImageCropsSource);
 
                                 // Save crop
-                                CropImage(img, rect).Save(Path.Combine(outputImageCropsFolder, $"crop_{id}_{i++}.jpg"));
-                               
+                                var cropFile = Path.Combine(outputImageCropsFolder, $"crop_{id}_{i++}.jpg");
+                                CropImage(img, rect).Save(cropFile);
+
+                                // Using ['filename', 'width', 'height', 'class', 'xmin', 'ymin', 'xmax', 'ymax']
+                                output.Add(new TaskEntry(cropFile, $"'{filename}', {width}, {height}, '{type}', {(int)rect.Left}, {(int)rect.Top}, {(int)rect.Right}, {(int)rect.Bottom}"));
+
+
                             }
                         }
                     }
@@ -118,9 +121,19 @@ namespace PybossaParser
             if (File.Exists(o))
                 File.Delete(o);
 
+            Console.WriteLine($"Check and delete the bad crops from '{outputFolderCrops}' and press a key to finish.");
+            Console.ReadKey();
+
             Console.WriteLine($"Writing: {outputFile}");
-            File.WriteAllLines(o, output.ToArray());
+            File.WriteAllLines(o, CheckIfFileExistAndOutput(output));
             Console.WriteLine("All done.");
+        }
+
+        private static IEnumerable<string> CheckIfFileExistAndOutput(List<TaskEntry> output)
+        {
+            foreach (var o in output)
+                if (File.Exists(o.CropImageFilePath))
+                    yield return o.TextRepresentation;
         }
 
         // From: https://stackoverflow.com/questions/734930/how-to-crop-an-image-using-c
@@ -129,5 +142,17 @@ namespace PybossaParser
             Bitmap bmpImage = new Bitmap(img);
             return bmpImage.Clone(cropArea, bmpImage.PixelFormat);
         }
+    }
+
+    internal class TaskEntry
+    {
+        public TaskEntry(string cropImageFilePath, string textRepresentation)
+        {
+            CropImageFilePath = cropImageFilePath;
+            TextRepresentation = textRepresentation;
+        }
+
+        public string CropImageFilePath { get; }
+        public string TextRepresentation { get; }
     }
 }
