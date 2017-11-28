@@ -303,3 +303,12 @@ __pycache__/
 
 # OpenCover UI analysis results
 OpenCover/
+
+# haar_workspace tmp files
+haar_workspace/negatives/*
+haar_workspace/positives/*
+haar_workspace/samples/*
+haar_workspace/positives.lst
+haar_workspace/negatives.lst
+haar_workspace/positives.vec
+
