@@ -29,4 +29,4 @@ python mergevec.py -v samples/ -o positives.vec
 
 ##Train the cascade
 #opencv_traincascade -data classifier -vec positives.vec -bg negatives.lst -numPos $numpos -numStages 20 -w 120 -h 80
-opencv_traincascade -data classifier -vec positives.vec -bg negatives.lst -numPos $numpos -precalcValBufSize 8000 -precalcIdxBufSize 8000 -minHitRate 0.995 -maxFalseAlarmRate 0.5 -weightTrimRate 0.95 -numStages 20 -w 120 -h 80
+opencv_traincascade -data $supermarket -vec positives.vec -bg negatives.lst -numPos $numpos -precalcValBufSize 8000 -precalcIdxBufSize 8000 -minHitRate 0.995 -maxFalseAlarmRate 0.5 -weightTrimRate 0.95 -numStages 20 -w 120 -h 80
