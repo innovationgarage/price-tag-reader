@@ -1,0 +1,6 @@
+jupyter
+opencv-python
+pillow
+imutils
+pytesseract
+matplotlib
