@@ -2,11 +2,14 @@ supermarket=$1
 
 pos="positives/"
 neg="negatives/"
-numpos=1500
+numpos=20
+memuse=2000
 
 ## Pre-processing
 mkdir $pos
 mkdir $neg
+mkdir $supermarket
+mkdir LBP_$supermarket
 
 #grayscale images
 echo $supermarket
@@ -29,4 +32,8 @@ python mergevec.py -v samples/ -o positives.vec
 
 ##Train the cascade
 #opencv_traincascade -data classifier -vec positives.vec -bg negatives.lst -numPos $numpos -numStages 20 -w 120 -h 80
-opencv_traincascade -data $supermarket -vec positives.vec -bg negatives.lst -numPos $numpos -precalcValBufSize 8000 -precalcIdxBufSize 8000 -minHitRate 0.995 -maxFalseAlarmRate 0.5 -weightTrimRate 0.95 -numStages 20 -w 120 -h 80
+#Haar cascade
+#opencv_traincascade -data haar $supermarket -vec positives.vec -bg negatives.lst -numPos $numpos -precalcValBufSize $memuse -precalcIdxBufSize $memuse -minHitRate 0.995 -maxFalseAlarmRate 0.5 -weightTrimRate 0.95 -numStages 20 -w 120 -h 80
+
+#LBP cascade
+opencv_traincascade -data lbp LBP_$supermarket -vec positives.vec -bg negatives.lst -numPos $numpos -precalcValBufSize $memuse -precalcIdxBufSize $memuse -minHitRate 0.995 -maxFalseAlarmRate 0.5 -weightTrimRate 0.95 -numStages 20 -w 120 -h 80
