@@ -1,18 +1,22 @@
 supermarket=$1
+feature=$2
+path=$feature"_"$supermarket
 
 pos="positives/"
 neg="negatives/"
-numpos=20
+numpos=200
+numneg=5000
+numstages=20
 memuse=2000
+
 
 ## Pre-processing
 mkdir $pos
 mkdir $neg
-mkdir $supermarket
-mkdir LBP_$supermarket
+mkdir $path
 
 #grayscale images
-echo $supermarket
+echo $path
 echo "grayscaling positive images"
 mogrify -path $pos -type Grayscale ../haar_classifier/new_inputsets/$supermarket/*.jpg
 echo "grayscaling negative images"
@@ -30,10 +34,12 @@ cd ..
 perl createtrainsamples.pl positives.lst negatives.lst samples $numpos "opencv_createsamples -bgcolor 0 -bgthresh 80 -maxxangle 1.1 -maxyangle 1.1 maxzangle 0.5 -maxidev 40 -w 120 -h 80 -nosym"
 python mergevec.py -v samples/ -o positives.vec
 
-##Train the cascade
-#opencv_traincascade -data classifier -vec positives.vec -bg negatives.lst -numPos $numpos -numStages 20 -w 120 -h 80
-#Haar cascade
-#opencv_traincascade -data haar $supermarket -vec positives.vec -bg negatives.lst -numPos $numpos -precalcValBufSize $memuse -precalcIdxBufSize $memuse -minHitRate 0.995 -maxFalseAlarmRate 0.5 -weightTrimRate 0.95 -numStages 20 -w 120 -h 80
-
-#LBP cascade
-opencv_traincascade -data lbp LBP_$supermarket -vec positives.vec -bg negatives.lst -numPos $numpos -precalcValBufSize $memuse -precalcIdxBufSize $memuse -minHitRate 0.995 -maxFalseAlarmRate 0.5 -weightTrimRate 0.95 -numStages 20 -w 120 -h 80
+# ##Train the cascade
+if [ $feature=='LBP' ];
+then
+    #LBP cascade
+    opencv_traincascade -data LBP_$supermarket -vec positives.vec -bg negatives.lst -numStages $numstages -minHitRate 0.999 -maxFalseAlarmRate 0.5 -numPos $numpos -numNeg $numneg -w 120 -h 80 -mode ALL -precalcValBufSize $memuse -precalcIdxBufSize $memuse -featureType LBP
+else
+    #Haar cascade
+    opencv_traincascade -data $supermarket -vec positives.vec -bg negatives.lst -numStages $numstages -minHitRate 0.999 -maxFalseAlarmRate 0.5 -numPos $numpos -numNeg $numneg -w 120 -h 80 -mode ALL -precalcValBufSize $memuse -precalcIdxBufSize $memuse
+fi    
