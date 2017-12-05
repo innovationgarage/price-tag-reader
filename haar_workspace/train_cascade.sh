@@ -11,6 +11,7 @@ memuse=2000
 w=120
 h=80
 size=$w"x"$h"^"
+numThreads=4
 
 ## Pre-processing
 mkdir $pos
@@ -37,11 +38,11 @@ perl createtrainsamples.pl positives.lst negatives.lst samples $numpos "opencv_c
 python mergevec.py -v samples/ -o positives.vec
 
 # ##Train the cascade
-if [ $feature=='LBP' ];
-then
-    #LBP cascade
-    opencv_traincascade -data LBP_$supermarket -vec positives.vec -bg negatives.lst -numStages $numstages -numThreads 2 -minHitRate 0.999 -maxFalseAlarmRate 0.5 -numPos $numpos -numNeg $numneg -w $w -h $h -mode ALL -precalcValBufSize $memuse -precalcIdxBufSize $memuse -featureType LBP
-else
-    #Haar cascade
-    opencv_traincascade -data $supermarket -vec positives.vec -bg negatives.lst -numStages $numstages -minHitRate 0.999 -maxFalseAlarmRate 0.5 -numPos $numpos -numNeg $numneg -w $w -h $h -mode ALL -precalcValBufSize $memuse -precalcIdxBufSize $memuse
-fi    
+# if [ $feature=='LBP' ];
+# then
+#     #LBP cascade
+opencv_traincascade -data $path -vec positives.vec -bg negatives.lst -numStages $numstages -numThreads $numThreads -minHitRate 0.999 -maxFalseAlarmRate 0.5 -numPos $numpos -numNeg $numneg -w $w -h $h -mode ALL -precalcValBufSize $memuse -precalcIdxBufSize $memuse -featureType $feature
+# else
+#     #Haar cascade
+#     opencv_traincascade -data $supermarket -vec positives.vec -bg negatives.lst -numStages $numstages -minHitRate 0.999 -maxFalseAlarmRate 0.5 -numPos $numpos -numNeg $numneg -w $w -h $h -mode ALL -precalcValBufSize $memuse -precalcIdxBufSize $memuse
+# fi    
