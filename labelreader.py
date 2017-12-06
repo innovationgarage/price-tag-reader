@@ -67,19 +67,18 @@ def imageGrads(img):
         grads.append(grad)
     return grads[0] + grads[1]
 
-def imageBorders(grad):
-    rectKern = cv2.getStructuringElement(cv2.MORPH_RECT, (10,10))
+def imageBorders(grad, width=5, length=0.25):
+    rectKern = cv2.getStructuringElement(cv2.MORPH_RECT, (width,width))
     borders = [None, None]
-    for idx, kern in enumerate((cv2.getStructuringElement(cv2.MORPH_RECT, (1, 40)),
-                                cv2.getStructuringElement(cv2.MORPH_RECT, (40,1)))):
+    for idx, kern in enumerate((cv2.getStructuringElement(cv2.MORPH_RECT, (1, int(length * grad.shape[1]))),
+                                cv2.getStructuringElement(cv2.MORPH_RECT, (int(length * grad.shape[0]),1)))):
         borders[idx] = cv2.erode(grad, kern)
         borders[idx] = cv2.threshold(borders[idx], 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
         borders[idx] = cv2.dilate(borders[idx], rectKern)
         borders[idx] = cv2.dilate(borders[idx], kern)
     return borders[0] + borders[1]
     
-def imageObjgrad(grad):
-    borders = imageBorders(grad)
+def imageObjgrad(grad, borders):
     bingrad = cv2.threshold(grad, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
     return cv2.threshold(bingrad - borders,
                          0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
@@ -112,7 +111,7 @@ def imageLines(boxes):
             lines.append([ridx])
     return lines
 
-def cut_image(img, bbox, vmargin=0, hmargin=0):
+def cut_image(img, bbox, hmargin=0, vmargin=0):
     (x, y, w, h) = bbox
     x -= hmargin
     y -= vmargin
@@ -147,17 +146,13 @@ def is_barcode(img, cutoff=0.2):
     else:
         return False
 
-def imageTexts(img, lineboxes):
+def imageTexts(img, lineboxes, hmargin=0, vmargin=0):
     linetexts = []
     for b in lineboxes:
         (x, y, w, h) = b
         txt = ""
         if w >= 10 and h >= 10:
-            x -= 5
-            y -= 5
-            w += 10
-            h += 10
-            roi = img[y:y + h, x:x + w]
+            roi = cut_image(img, b, hmargin=hmargin, vmargin=vmargin)
             if roi.shape[0] and roi.shape[1]:
                 if is_barcode(roi):
                     scanner = zbar.Scanner()
@@ -207,11 +202,12 @@ def drawLineBoxes(ax, lineboxes):
     for b in lineboxes:
         ax.add_patch(patches.Rectangle((b[0],b[1]),b[2],b[3], fill=False, edgecolor="blue"))
 
-def drawLineBoxesAndText(ax, lineboxes, linetexts):
+def drawLineBoxesAndText(ax, lineboxes, linetexts, hmargin=0, vmargin=0):
     cmap = plt.get_cmap("prism")
     for lidx, (b, txt) in enumerate(zip(lineboxes, linetexts)):
-        if not txt: continue
-        ax.add_patch(patches.Rectangle((b[0]-5,b[1]-5),b[2]+10,b[3]+10, fill=False, edgecolor="blue"))
+        # if not txt: continue
+        if b[2] < 10 or b[3] < 10: continue
+        ax.add_patch(patches.Rectangle((b[0]-hmargin,b[1]-vmargin),b[2]+2*hmargin,b[3]+2*vmargin, fill=False, edgecolor="blue"))
         ax.text(b[0], b[1], "%s: %s" % (lidx, txt),
                 horizontalalignment='left',
                 verticalalignment='bottom',
