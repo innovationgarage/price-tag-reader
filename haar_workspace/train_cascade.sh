@@ -4,9 +4,9 @@ path=$feature"_"$supermarket
 
 pos="positives/"
 neg="negatives/"
-numpos=1000
-numneg=1000
-numstages=5
+numpos=50
+numneg=500
+numstages=10
 memuse=2000
 w=120
 h=80
