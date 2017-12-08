@@ -312,3 +312,7 @@ haar_workspace/positives.lst
 haar_workspace/negatives.lst
 haar_workspace/positives.vec
 
+# more temp files
+**/n/*
+**/p/*
+**/new_haar*supermarket*/negatives/*
