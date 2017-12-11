@@ -4,14 +4,14 @@ path=$feature"_"$supermarket
 
 pos="positives/"
 neg="negatives/"
-numpos=1000
-numneg=1000
-numstages=5
+numpos=50
+numneg=500
+numstages=10
 memuse=2000
 w=120
 h=80
 size=$w"x"$h"^"
-numThreads=7
+numThreads=8
 
 ## Pre-processing
 mkdir $pos
@@ -22,9 +22,7 @@ mkdir $path
 echo $path
 echo "grayscaling and resizing positive images"
 mogrify -path $pos -type Grayscale -resize $size ../haar_classifier/new_inputsets/$supermarket/*.jpg
-#mogrify -path $pos -type Grayscale ../haar_classifier/new_inputsets/$supermarket/*.jpg
 echo "grayscaling negative images"
-#mogrify -path $neg -type Grayscale -resize $size ../haar_classifier/new_inputsets/negatives/*.jpg
 mogrify -path $neg -type Grayscale ../haar_classifier/new_inputsets/negatives/*.jpg
 
 #make list
@@ -40,5 +38,5 @@ perl createtrainsamples.pl positives.lst negatives.lst samples $numpos "opencv_c
 python mergevec.py -v samples/ -o positives.vec
 
 ##Train the cascade
-#opencv_traincascade -data $path -vec positives.vec -bg negatives.lst -numStages $numstages -numThreads $numThreads -minHitRate 0.999 -maxFalseAlarmRate 0.5 -numPos $numpos -numNeg $numneg -w $w -h $h -precalcValBufSize $memuse -precalcIdxBufSize $memuse -featureType $feature -mode ALL
-opencv_traincascade -data $path -vec positives.vec -bg negatives.lst -numStages $numstages -numThreads $numThreads  -minHitRate 0.999 -maxFalseAlarmRate 0.5 -numPos $numpos -numNeg $numneg -w $w -h $h -precalcValBufSize $memuse -precalcIdxBufSize $memuse -featureType $feature
+opencv_traincascade -data $path -vec positives.vec -bg negatives.lst -numStages $numstages -numThreads $numThreads -minHitRate 0.999 -maxFalseAlarmRate 0.5 -bt GAB -maxDepth 1 -weightTrimRate 0.95 -maxWeakCount 100 -numPos $numpos -numNeg $numneg -w $w -h $h -precalcValBufSize $memuse -precalcIdxBufSize $memuse -featureType $feature -mode BASIC
+
