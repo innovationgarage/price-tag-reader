@@ -9,6 +9,7 @@ import sys
 import json
 from PIL import Image
 import matplotlib.pyplot as plt
+import scipy.ndimage.interpolation
 
 # Tools for bbox handling
 
@@ -55,7 +56,14 @@ def lineBoxes(lines, boxes):
 
     
 # Tools for image handling
-    
+
+def lineKernels(size, *angles):
+    kern = np.zeros((size, size), dtype="uint8")
+    for i in xrange(0, size):
+        kern[i, int(size/2)] = 1
+    for angle in angles:
+        yield scipy.ndimage.interpolation.rotate(kern, angle)
+
 def imageGrads(img):
     grads = []
     for dx, dy in ((1, 0), (0, 1)):
@@ -67,16 +75,70 @@ def imageGrads(img):
         grads.append(grad)
     return grads[0] + grads[1]
 
-def imageBorders(grad, width=5, length=0.25):
+def hierarchy2dicts(hier):
+    children = {}
+    parents = {}
+    for self, (next, prev, firstchild, parent) in enumerate(hier[0]):
+        if parent not in children: children[parent] = []
+        children[parent].append(self)
+        parents[self] = parent
+    return children, parents
+
+def convexity(cnt):
+    """How convex is a contour, as a fraction between
+    0. (convex hull infinitely larger than contour) and 1. (entirely convex)"""
+    cnta = cv2.contourArea(cnt)
+    if cnta == 0: return 0
+    hull = cv2.convexHull(cnt)
+    hulla = cv2.contourArea(hull)
+    return cnta / hulla
+
+def borderSides(idx, parents, children):
+    if parents[idx] != -1:
+        return parents[idx], idx
+    elif children[idx]:
+        return idx, children[idx][0]
+    else:
+        return idx, idx
+
+def imageBorders(grad):
+    grad = cv2.threshold(grad, 40, 255, cv2.THRESH_BINARY)[1]
+    img_, cnts, hier = cv2.findContours(grad.copy(), cv2.RETR_CCOMP,cv2.CHAIN_APPROX_SIMPLE)
+    children, parents = hierarchy2dicts(hier)
+    large = [idx for idx, cnt in enumerate(cnts)
+             if cv2.contourArea(cnt) > grad.shape[0]*grad.shape[1] / 20]
+    large_children = {p: [c for c in cs if c in large]
+                      for p, cs in children.iteritems()}
+    borders = [borderSides(idx, parents, large_children) for idx in large
+               if convexity(cnts[idx]) > 0.85]
+    rims = [(cv2.convexHull(cnts[outer]), cv2.convexHull(cnts[inner]))
+            for outer, inner in borders]
+    outerRims = [outer for outer, inner in rims]
+    innerRims = [inner for outer, inner in rims]
+    
+    mask = np.zeros(grad.shape, dtype="uint8")
+    for outerRim, innerRim in rims:
+        cv2.fillPoly(mask, [outerRim, innerRim], 255)
+    mask = cv2.dilate(mask, cv2.getStructuringElement(cv2.MORPH_RECT, (3,3)))
+    return mask, rims
+
+def imageBordersLines(grad, width=5, length=0.5, angles=80):
     rectKern = cv2.getStructuringElement(cv2.MORPH_RECT, (width,width))
-    borders = [None, None]
-    for idx, kern in enumerate((cv2.getStructuringElement(cv2.MORPH_RECT, (1, int(length * grad.shape[1]))),
-                                cv2.getStructuringElement(cv2.MORPH_RECT, (int(length * grad.shape[0]),1)))):
-        borders[idx] = cv2.erode(grad, kern)
-        borders[idx] = cv2.threshold(borders[idx], 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
-        borders[idx] = cv2.dilate(borders[idx], rectKern)
-        borders[idx] = cv2.dilate(borders[idx], kern)
-    return borders[0] + borders[1]
+    kernels = lineKernels(int(length * min(*grad.shape)), *(180. * i / angles for i in xrange(0, angles)))
+
+    borders = []
+    for idx, kern in enumerate(kernels):
+        border = grad
+        border = cv2.threshold(border, 40, 255, cv2.THRESH_BINARY)[1]
+        border = cv2.erode(border, kern)
+        border = cv2.dilate(border, rectKern)
+        border = cv2.dilate(border, kern)
+        borders.append(border)
+    res = borders[0]
+    for border in borders[1:]:
+        res += border
+    res = res.clip(0, 255)
+    return res, []
     
 def imageObjgrad(grad, borders):
     bingrad = cv2.threshold(grad, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
@@ -168,11 +230,13 @@ def readLabel(filename):
     image = cv2.imread(filename)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     grad = imageGrads(gray)
-    objgrad = imageObjgrad(grad)
+    borders, borderCnts = imageBorders(grad)
+    objgrad = imageObjgrad(grad, borders)
+    cnts = imageContours(objgrad)
     boxes = imageBoxes(objgrad)
     lines = imageLines(boxes)
     lineboxes = lineBoxes(lines, boxes)
-    linetexts = imageTexts(gray, lineboxes)
+    linetexts = imageTexts(gray, lineboxes, vmargin=2, hmargin=2)
     return [(txt, b)
             for txt, b in zip(linetexts, lineboxes)
             if txt]
@@ -187,9 +251,9 @@ def drawLines(ax, lines, boxes):
             b = boxes[bidx]
             ax.add_patch(patches.Rectangle((b[0],b[1]),b[2],b[3], fill=False, edgecolor=color))
 
-def drawCountours(ax, cnts):
+def drawCountours(ax, cnts, color="green"):
     for c in cnts:
-        ax.plot(c[:,0,0], c[:,0,1], color="green")
+        ax.plot(c[:,0,0], c[:,0,1], color=color)
         
 def drawLineParts(ax, lines, boxes):
     for idx, l in enumerate(lines):
