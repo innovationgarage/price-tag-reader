@@ -49,7 +49,7 @@ def lineBoxes(lines, boxes):
                 pos[1] = p[1]
             if p[2] > pos[2]:
                 pos[2] = p[2]
-            if p[3] > pos[0]:
+            if p[3] > pos[3]:
                 pos[3] = p[3]
         lineboxes.append(pos2bbox(pos))
     return lineboxes
