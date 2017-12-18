@@ -10,6 +10,8 @@ import json
 from PIL import Image
 import matplotlib.pyplot as plt
 import scipy.ndimage.interpolation
+import os
+import traceback
 
 # Tools for bbox handling
 
@@ -70,6 +72,7 @@ def imageGrads(img):
         grad = cv2.Sobel(img, ddepth=cv2.CV_32F, dx=dx, dy=dy,ksize=9)
         grad = np.absolute(grad)
         (minVal, maxVal) = (np.min(grad), np.max(grad))
+        if maxVal == minVal: maxVal = minVal + 1
         grad = (255 * ((grad - minVal) / (maxVal - minVal)))
         grad = grad.astype("uint8")
         grads.append(grad)
@@ -226,6 +229,11 @@ def imageTexts(img, lineboxes, hmargin=0, vmargin=0):
         linetexts.append(txt)
     return linetexts
 
+def mergeLineBoxesAndtexts(lineboxes, linetexts):
+    return [(txt, b)
+            for txt, b in zip(linetexts, lineboxes)
+            if txt]
+
 def readLabel(filename):
     image = cv2.imread(filename)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -237,9 +245,7 @@ def readLabel(filename):
     lines = imageLines(boxes)
     lineboxes = lineBoxes(lines, boxes)
     linetexts = imageTexts(gray, lineboxes, vmargin=2, hmargin=2)
-    return [(txt, b)
-            for txt, b in zip(linetexts, lineboxes)
-            if txt]
+    return image, lineboxes, linetexts, borders, objgrad
 
 # Tools for visualizing intermediate results
 
@@ -278,5 +284,44 @@ def drawLineBoxesAndText(ax, lineboxes, linetexts, hmargin=0, vmargin=0):
                 fontsize=12,
                 color="red")
 
+def renderLineBoxesAndText(out, lineboxes, linetexts, hmargin=0, vmargin=0):
+    cmap = plt.get_cmap("prism")
+    for lidx, (b, txt) in enumerate(zip(lineboxes, linetexts)):
+        # if not txt: continue
+        if b[2] < 10 or b[3] < 10: continue
+        p = bbox2pos(b)
+        cv2.rectangle(out, (p[0]-hmargin,p[1]-vmargin), (p[2]+2*hmargin,p[3]+2*vmargin), (0,0,255),2)
+        cv2.putText(out, ("%s: %s" % (lidx, txt)).encode("utf-8"), (p[0], p[1]), cv2.FONT_HERSHEY_COMPLEX, 0.6, (255, 0, 0), 2)
+
+def makedir_for_file(path):
+    path, file = os.path.split(path)
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    
 if __name__ == "__main__":
-    print json.dumps(readLabel(sys.argv[1]))
+    for path in sys.stdin:
+        path = path[:-1]
+        try:
+            image, lineboxes, linetexts, borders, objgrad = readLabel(path)
+
+            print json.dumps({"path": path, "texts": mergeLineBoxesAndtexts(lineboxes, linetexts)})
+                        
+            basepath, name = os.path.split(path)
+
+            output = "%s/labeled/%s" % (basepath, name)
+            makedir_for_file(output)
+            out = image.copy()
+            renderLineBoxesAndText(out, lineboxes, linetexts, vmargin=2, hmargin=2)
+            cv2.imwrite(output, out)
+
+            output = "%s/objgrad/%s" % (basepath, name)            
+            makedir_for_file(output)
+            fig, ax = plt.subplots(1,1, figsize=(15,10))
+            ax.imshow(image)
+            ax.imshow(objgrad, alpha=0.5)
+            ax.imshow(borders, alpha=0.5, cmap=plt.get_cmap("jet"))
+            fig.savefig(output)
+            
+        except Exception, e:
+            print json.dumps({"path": path, "error": str(e), "traceback": traceback.format_exc()})
