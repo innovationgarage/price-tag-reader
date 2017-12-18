@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import scipy.ndimage.interpolation
 import os
 import traceback
+import copy
 
 # Tools for bbox handling
 
@@ -234,12 +235,21 @@ def mergeLineBoxesAndtexts(lineboxes, linetexts):
             for txt, b in zip(linetexts, lineboxes)
             if txt]
 
+def normalizeImage(img, borders=None):
+    p = img
+    if borders is not None:
+        p = p[borders == 0]
+    s = p.std()
+    m = np.median(p)
+    return (((img - (m - s)) / (2 * s)).clip(0., 1.) * 255).astype("uint8")
+
+
 def readLabel(filename):
     image = cv2.imread(filename)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    grad = imageGrads(gray)
+    grad = imageGrads(normalizeImage(gray))
     borders, borderCnts = imageBorders(grad)
-    objgrad = imageObjgrad(grad, borders)
+    objgrad = imageObjgrad(imageGrads(normalizeImage(gray, borders)), borders)
     cnts = imageContours(objgrad)
     boxes = imageBoxes(objgrad)
     lines = imageLines(boxes)
@@ -298,14 +308,19 @@ def makedir_for_file(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
-    
+def transparent0_cmap(name="jet"):
+    cmap = copy.deepcopy(plt.get_cmap(name))
+    cmap._init()
+    cmap._lut[0,-1] = 0.0
+    return cmap
+        
 if __name__ == "__main__":
     for path in sys.stdin:
         path = path[:-1]
         try:
             image, lineboxes, linetexts, borders, objgrad = readLabel(path)
 
-            print json.dumps({"path": path, "texts": mergeLineBoxesAndtexts(lineboxes, linetexts)})
+            print json.dumps({"path": path, "texts": mergeLineBoxesAndtexts(lineboxes, linetexts)}, ensure_ascii=False).encode("utf-8")
                         
             basepath, name = os.path.split(path)
 
@@ -319,8 +334,8 @@ if __name__ == "__main__":
             makedir_for_file(output)
             fig, ax = plt.subplots(1,1, figsize=(15,10))
             ax.imshow(image)
-            ax.imshow(objgrad, alpha=0.5)
-            ax.imshow(borders, alpha=0.5, cmap=plt.get_cmap("jet"))
+            ax.imshow(objgrad, cmap=transparent0_cmap("autumn"))
+            ax.imshow(borders, cmap=transparent0_cmap("winter"))
             fig.savefig(output)
             
         except Exception, e:
