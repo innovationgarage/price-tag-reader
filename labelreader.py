@@ -143,7 +143,54 @@ def imageBordersLines(grad, width=5, length=0.5, angles=80):
         res += border
     res = res.clip(0, 255)
     return res, []
-    
+
+def imageBordersHough(grad):
+    size = int(min(*grad.shape) * 0.3)
+
+    edges = cv2.threshold(grad, 0, 1, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+    lines = cv2.HoughLinesP(
+        edges,
+        rho=1,
+        theta=np.pi/180,
+        threshold=size,
+        minLineLength=size,
+        maxLineGap=0)
+
+    borders = np.zeros(grad.shape, dtype="uint8")
+    if lines is not None:
+        for idx, line in enumerate(lines):
+            for x1,y1,x2,y2 in line:
+                cv2.line(borders, (x1, y1), (x2, y2), 255, 8)
+    return borders, []
+
+def imageBordersColoredHough(gray, grad, color_levels = 16):
+    grad = cv2.threshold(grad, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+
+    cat = cv2.medianBlur(gray,11)
+    cat = normalizeImage(cat)
+
+    cat = (cat / color_levels) * color_levels
+
+    plt.imshow(cat); plt.show()
+
+    o = np.zeros(gray.shape + (3,), dtype="uint8")
+    o[:,:,0] = (grad / 255.) * (cat)
+    o[:,:,1] = (grad / 255.) * (255 - cat)
+    o[:,:,2] = 0
+
+    plt.imshow(o); plt.show()
+
+    res = []
+    for c in xrange(0, color_levels):
+        layer = grad * (cat / color_levels == c)
+        layer = cv2.dilate(layer, cv2.getStructuringElement(cv2.MORPH_RECT, (3,3)))
+        layer, cnt = imageBordersHough(layer)
+        res.append(layer)
+    for layer in res[1:]:
+        res[0] = res[0] | layer
+
+    return res[0], []
+
 def imageObjgrad(grad, borders):
     bingrad = cv2.threshold(grad, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
     return cv2.threshold(bingrad - borders,
@@ -244,17 +291,23 @@ def normalizeImage(img, borders=None):
     return (((img - (m - s)) / (2 * s)).clip(0., 1.) * 255).astype("uint8")
 
 
-def readLabel(filename):
+def readLabel(filename, noOcr = False):
     image = cv2.imread(filename)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     grad = imageGrads(normalizeImage(gray))
-    borders, borderCnts = imageBorders(grad)
+    borders1, borderCnts = imageBordersHough(grad)
+    borders2, borderCnts = imageBordersColoredHough(gray, grad)
+    borders = borders1 | borders2
     objgrad = imageObjgrad(imageGrads(normalizeImage(gray, borders)), borders)
     cnts = imageContours(objgrad)
     boxes = imageBoxes(objgrad)
     lines = imageLines(boxes)
     lineboxes = lineBoxes(lines, boxes)
-    linetexts = imageTexts(gray, lineboxes, vmargin=2, hmargin=2)
+    
+    if not noOcr:
+        linetexts = imageTexts(gray, lineboxes, vmargin=2, hmargin=2)
+    else:
+        linetexts = ["" for box in lineboxes]
     return image, lineboxes, linetexts, borders, objgrad
 
 # Tools for visualizing intermediate results
@@ -315,10 +368,22 @@ def transparent0_cmap(name="jet"):
     return cmap
         
 if __name__ == "__main__":
+    args = []
+    kws = {}
+    for arg in sys.argv[1:]:
+        if arg.startswith("--"):
+            value = True
+            arg = arg[2:]
+            if '=' in arg:
+                arg, value = arg.split("=", 1)
+            kws[arg] = value
+        else:
+            args.append(arg)
+                
     for path in sys.stdin:
         path = path[:-1]
         try:
-            image, lineboxes, linetexts, borders, objgrad = readLabel(path)
+            image, lineboxes, linetexts, borders, objgrad = readLabel(path, **kws)
 
             print json.dumps({"path": path, "texts": mergeLineBoxesAndtexts(lineboxes, linetexts)}, ensure_ascii=False).encode("utf-8")
                         
