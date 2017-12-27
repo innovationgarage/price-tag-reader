@@ -291,8 +291,7 @@ def normalizeImage(img, borders=None):
     return (((img - (m - s)) / (2 * s)).clip(0., 1.) * 255).astype("uint8")
 
 
-def readLabel(filename, noOcr = False):
-    image = cv2.imread(filename)
+def readLabelImage(image, noOcr = False):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     grad = imageGrads(normalizeImage(gray))
     borders1, borderCnts = imageBordersHough(grad)
@@ -309,6 +308,9 @@ def readLabel(filename, noOcr = False):
     else:
         linetexts = ["" for box in lineboxes]
     return image, lineboxes, linetexts, borders, objgrad
+
+def readLabel(filename, *arg, **kw):
+    return readLabelImage(cv2.imread(filename), *arg, **kw)
 
 # Tools for visualizing intermediate results
 
