@@ -144,8 +144,8 @@ def imageBordersLines(grad, width=5, length=0.5, angles=80):
     res = res.clip(0, 255)
     return res, []
 
-def imageBordersHough(grad):
-    size = int(min(*grad.shape) * 0.3)
+def imageBordersHough(grad, size=0.4):
+    size = int(min(*grad.shape) * size)
 
     edges = cv2.threshold(grad, 0, 1, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
     lines = cv2.HoughLinesP(
@@ -163,7 +163,7 @@ def imageBordersHough(grad):
                 cv2.line(borders, (x1, y1), (x2, y2), 255, 8)
     return borders, []
 
-def imageBordersColoredHough(gray, grad, color_levels = 16):
+def imageBordersColoredHough(gray, grad, color_levels = 16, **kw):
     grad = cv2.threshold(grad, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
 
     cat = cv2.medianBlur(gray,11)
@@ -184,7 +184,7 @@ def imageBordersColoredHough(gray, grad, color_levels = 16):
     for c in xrange(0, color_levels):
         layer = grad * (cat / color_levels == c)
         layer = cv2.dilate(layer, cv2.getStructuringElement(cv2.MORPH_RECT, (3,3)))
-        layer, cnt = imageBordersHough(layer)
+        layer, cnt = imageBordersHough(layer, **kw)
         res.append(layer)
     for layer in res[1:]:
         res[0] = res[0] | layer
