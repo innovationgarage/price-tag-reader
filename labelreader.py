@@ -156,49 +156,10 @@ def borderSides(idx, parents, children):
     else:
         return idx, idx
 
-def imageBorders(grad):
-    grad = cv2.threshold(grad, 40, 255, cv2.THRESH_BINARY)[1]
-    img_, cnts, hier = cv2.findContours(grad.copy(), cv2.RETR_CCOMP,cv2.CHAIN_APPROX_SIMPLE)
-    children, parents = hierarchy2dicts(hier)
-    large = [idx for idx, cnt in enumerate(cnts)
-             if cv2.contourArea(cnt) > grad.shape[0]*grad.shape[1] / 20]
-    large_children = {p: [c for c in cs if c in large]
-                      for p, cs in children.iteritems()}
-    borders = [borderSides(idx, parents, large_children) for idx in large
-               if convexity(cnts[idx]) > 0.85]
-    rims = [(cv2.convexHull(cnts[outer]), cv2.convexHull(cnts[inner]))
-            for outer, inner in borders]
-    outerRims = [outer for outer, inner in rims]
-    innerRims = [inner for outer, inner in rims]
-    
-    mask = np.zeros(grad.shape, dtype="uint8")
-    for outerRim, innerRim in rims:
-        cv2.fillPoly(mask, [outerRim, innerRim], 255)
-    mask = cv2.dilate(mask, cv2.getStructuringElement(cv2.MORPH_RECT, (3,3)))
-    return mask, rims
-
-def imageBordersLines(grad, width=5, length=0.5, angles=80):
-    rectKern = cv2.getStructuringElement(cv2.MORPH_RECT, (width,width))
-    kernels = lineKernels(int(length * min(*grad.shape)), *(180. * i / angles for i in xrange(0, angles)))
-
-    borders = []
-    for idx, kern in enumerate(kernels):
-        border = grad
-        border = cv2.threshold(border, 40, 255, cv2.THRESH_BINARY)[1]
-        border = cv2.erode(border, kern)
-        border = cv2.dilate(border, rectKern)
-        border = cv2.dilate(border, kern)
-        borders.append(border)
-    res = borders[0]
-    for border in borders[1:]:
-        res += border
-    res = res.clip(0, 255)
-    return res, []
-
 def imageBordersHough(grad, size=0.3):
     size = int(min(*grad.shape) * size)
 
-    edges = cv2.threshold(grad, 0, 1, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+    edges = cv2.adaptiveThreshold(grad, 1, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,11,-2)
 
     lines = skimage.transform.probabilistic_hough_line(
         edges, threshold=size, line_length=size,
@@ -211,43 +172,17 @@ def imageBordersHough(grad, size=0.3):
             cv2.line(borders, (x1, y1), (x2, y2), 255, 8)
     return borders, []
 
-def imageBordersColoredHough(gray, grad, color_levels = 16, **kw):
-    grad = cv2.threshold(grad, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
-
-    cat = cv2.medianBlur(gray,11)
-    cat = normalizeImage(cat)
-
-    cat = (cat / color_levels) * color_levels
-
-    plt.imshow(cat); plt.show()
-
-    o = np.zeros(gray.shape + (3,), dtype="uint8")
-    o[:,:,0] = (grad / 255.) * (cat)
-    o[:,:,1] = (grad / 255.) * (255 - cat)
-    o[:,:,2] = 0
-
-    plt.imshow(o); plt.show()
-
-    res = []
-    for c in xrange(0, color_levels):
-        layer = grad * (cat / color_levels == c)
-        layer = cv2.dilate(layer, cv2.getStructuringElement(cv2.MORPH_RECT, (3,3)))
-        layer, cnt = imageBordersHough(layer, **kw)
-        res.append(layer)
-    for layer in res[1:]:
-        res[0] = res[0] | layer
-
-    return res[0], []
-
 def imageObjgrad(grad, borders):
-    bingrad = cv2.threshold(grad, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+    bingrad = cv2.adaptiveThreshold(grad, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,11,-2)
     return cv2.threshold(bingrad - borders,
                          0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
 
 
 def imageContours(objgrad):
     cnts = cv2.findContours(objgrad.copy(), cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
-    return cnts[0] if imutils.is_cv2() else cnts[1]
+    cnts = cnts[0] if imutils.is_cv2() else cnts[1]
+    return [cnt for cnt in cnts
+            if cv2.contourArea(cnt) > 25]
 
 def imageBoxes(objgrad):
     return [cv2.boundingRect(c) for c in imageContours(objgrad)]
@@ -321,9 +256,9 @@ def normalizeImage(img, borders=None):
 
 def readLabelImage(image, noOcr = False):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    grad = imageGrads(normalizeImage(gray))
+    grad = imageGrads(gray)
     borders, borderCnts = imageBordersHough(grad)
-    objgrad = imageObjgrad(imageGrads(normalizeImage(gray, borders)), borders)
+    objgrad = imageObjgrad(grad, borders)
     cnts = imageContours(objgrad)
     boxes = imageBoxes(objgrad)
     lines = imageLinesRecursive(boxes)
