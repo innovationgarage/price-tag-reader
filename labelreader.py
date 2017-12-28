@@ -236,7 +236,7 @@ def imageTexts(img, lineboxes, hmargin=0, vmargin=0):
                     if results:
                         txt = "%s: %s" % (results[0].type, results[0].data)
                 else:
-                    txt = pytesseract.image_to_string(Image.fromarray(roi))
+                    txt = pytesseract.image_to_string(Image.fromarray(roi), lang="nor")
         linetexts.append(txt)
     return linetexts
 
@@ -365,6 +365,7 @@ if __name__ == "__main__":
             ax.imshow(objgrad, cmap=transparent0_cmap("autumn"))
             ax.imshow(borders, cmap=transparent0_cmap("winter"))
             fig.savefig(output)
+            fig.close()
             
         except Exception, e:
             print json.dumps({"path": path, "error": str(e), "traceback": traceback.format_exc()})
