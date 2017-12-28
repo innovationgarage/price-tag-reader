@@ -13,6 +13,7 @@ import scipy.ndimage.interpolation
 import os
 import traceback
 import copy
+import skimage.transform
 
 # Tools for bbox handling
 
@@ -40,6 +41,40 @@ def pos2bbox(p):
     p[3] -= p[1]
     return tuple(p)
 
+def boxOverlap(r1, r2):
+    r1 = bbox2pos(r1)
+    r2 = bbox2pos(r2)
+    x_overlap = max(0, min(r1[2], r2[2]) - max(r1[0], r2[0]))
+    y_overlap = max(0, min(r1[3], r2[3]) - max(r1[1], r2[1]))
+    return x_overlap * y_overlap
+    
+def imageLines(boxes, overlap_req = 0.3):
+    lines = []
+    for ridx, r in sorted(enumerate(boxes), lambda a, b: cmp(a[1][0], b[1][0])):
+        overlaps = [lidx for lidx, l in enumerate(lines)
+                    if boxOverlap(boxes[l[-1]], r) > r[2] * r[3] * overlap_req]
+        if overlaps:
+            lidx = overlaps[0]
+            #print "%s added to %s after %s with due to overlap" % (ridx, lidx, lines[lidx][-1])
+            lines[lidx].append(ridx)
+        else:
+            boxdists = sorted(((boxDist(boxes[l[-1]], r),
+                                boxDiff(boxes[l[-1]], r),
+                                lidx)
+                               for lidx, l in enumerate(lines)),
+                              lambda a, b: cmp(a[0], b[0]))
+            boxdists = [(dist, diff, lidx)
+                        for (dist, diff, lidx) in boxdists
+                        if dist < 1 and diff > 0.75]
+            if boxdists:
+                dist, diff, lidx = boxdists[0]
+                #print "%s added to %s after %s with distance %s and diff %s" % (ridx, lidx, lines[lidx][-1], dist, diff)
+                lines[lidx].append(ridx)
+            else:
+                #print "%s added to new line %s" % (ridx, len(lines))
+                lines.append([ridx])
+    return lines
+
 def lineBoxes(lines, boxes):
     lineboxes = []
     for line in lines:
@@ -57,6 +92,22 @@ def lineBoxes(lines, boxes):
         lineboxes.append(pos2bbox(pos))
     return lineboxes
 
+def flattenLines(lines, linegroups):
+    return [[ridx for lidx in group for ridx in lines[lidx]]
+            for group in linegroups]
+
+def imageLinesRecursive(boxes):
+    lines = imageLines(boxes)
+    linelen = len(lines)
+    oldLinelen = linelen + 1
+    while linelen < oldLinelen:
+        lineboxes = lineBoxes(lines, boxes)
+        linegroups = imageLines(lineboxes)
+        lines = flattenLines(lines,linegroups)
+        oldLinelen = linelen
+        linelen = len(lines)
+    return lines
+                 
     
 # Tools for image handling
 
@@ -144,23 +195,20 @@ def imageBordersLines(grad, width=5, length=0.5, angles=80):
     res = res.clip(0, 255)
     return res, []
 
-def imageBordersHough(grad, size=0.4):
+def imageBordersHough(grad, size=0.3):
     size = int(min(*grad.shape) * size)
 
     edges = cv2.threshold(grad, 0, 1, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
-    lines = cv2.HoughLinesP(
-        edges,
-        rho=1,
-        theta=np.pi/180,
-        threshold=size,
-        minLineLength=size,
-        maxLineGap=0)
+
+    lines = skimage.transform.probabilistic_hough_line(
+        edges, threshold=size, line_length=size,
+        line_gap=0)
 
     borders = np.zeros(grad.shape, dtype="uint8")
     if lines is not None:
         for idx, line in enumerate(lines):
-            for x1,y1,x2,y2 in line:
-                cv2.line(borders, (x1, y1), (x2, y2), 255, 8)
+            (x1,y1),(x2,y2) = line
+            cv2.line(borders, (x1, y1), (x2, y2), 255, 8)
     return borders, []
 
 def imageBordersColoredHough(gray, grad, color_levels = 16, **kw):
@@ -203,26 +251,6 @@ def imageContours(objgrad):
 
 def imageBoxes(objgrad):
     return [cv2.boundingRect(c) for c in imageContours(objgrad)]
-
-def imageLines(boxes):
-    lines = []
-    for ridx, r in sorted(enumerate(boxes), lambda a, b: cmp(a[1][0], b[1][0])):
-        boxdists = sorted(((boxDist(boxes[l[-1]], r),
-                            boxDiff(boxes[l[-1]], r),
-                            lidx)
-                           for lidx, l in enumerate(lines)),
-                          lambda a, b: cmp(a[0], b[0]))
-        boxdists = [(dist, diff, lidx)
-                    for (dist, diff, lidx) in boxdists
-                    if dist < 1 and diff > 0.75]
-        if boxdists:
-            dist, diff, lidx = boxdists[0]
-            #print "%s added to %s after %s with distance %s and diff %s" % (ridx, lidx, lines[lidx][-1], dist, diff)
-            lines[lidx].append(ridx)
-        else:
-            #print "%s added to new line %s" % (ridx, len(lines))
-            lines.append([ridx])
-    return lines
 
 def cut_image(img, bbox, hmargin=0, vmargin=0):
     (x, y, w, h) = bbox
@@ -294,13 +322,11 @@ def normalizeImage(img, borders=None):
 def readLabelImage(image, noOcr = False):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     grad = imageGrads(normalizeImage(gray))
-    borders1, borderCnts = imageBordersHough(grad)
-    borders2, borderCnts = imageBordersColoredHough(gray, grad)
-    borders = borders1 | borders2
+    borders, borderCnts = imageBordersHough(grad)
     objgrad = imageObjgrad(imageGrads(normalizeImage(gray, borders)), borders)
     cnts = imageContours(objgrad)
     boxes = imageBoxes(objgrad)
-    lines = imageLines(boxes)
+    lines = imageLinesRecursive(boxes)
     lineboxes = lineBoxes(lines, boxes)
     
     if not noOcr:
