@@ -23,7 +23,7 @@ parser.add_argument('--cascade', '-c', type=str, required=True, help='supermarke
 parser.add_argument('--testdir', '-t', type=str, required=True, help='path to the dir containing test images')
 parser.add_argument('--mode', '-m', type=str, default="detect", help='set to "face" or "eye# to use openCV pre-trained cascades')
 parser.add_argument('--outdir', '-o', type=str, required=True, help='path to the output directory')
-parser.add_argument('--scale factor', '-sf', type=int, default=1.3, help='detectMultiScale scale factor')
+parser.add_argument('--scale factor', '-sf', type=str, default=1.3, help='detectMultiScale scale factor')
 parser.add_argument('--min neighbors', '-mn', type=int, default=5, help='detectMultiScale min neighbors')
 
 args = vars(parser.parse_args())
@@ -50,5 +50,5 @@ out_imgs = [os.path.join(out_img_path, x) for x in os.listdir(tst_img_path)]
 
 for i, im in enumerate(tst_imgs):
     print(im)
-    test_on_image(im, cascade_path, out_imgs[i], args['scale factor'], args['min neighbors'])
+    test_on_image(im, cascade_path, out_imgs[i], float(args['scale factor']), args['min neighbors'])
                   
