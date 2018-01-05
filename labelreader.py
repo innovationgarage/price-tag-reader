@@ -3,7 +3,6 @@ import cv2
 import imutils
 from imutils import contours
 import matplotlib.patches as patches
-import pytesseract
 import zbar
 import sys
 import json
@@ -14,6 +13,10 @@ import os
 import traceback
 import copy
 import skimage.transform
+import pyocr
+
+ocrtools = {tool.get_name(): tool for tool in pyocr.get_available_tools()}
+
 
 # Tools for bbox handling
 
@@ -182,7 +185,7 @@ def imageContours(objgrad):
     cnts = cv2.findContours(objgrad.copy(), cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
     cnts = cnts[0] if imutils.is_cv2() else cnts[1]
     return [cnt for cnt in cnts
-            if cv2.contourArea(cnt) > 25]
+            if cv2.contourArea(cnt) > 16]
 
 def imageBoxes(objgrad):
     return [cv2.boundingRect(c) for c in imageContours(objgrad)]
@@ -236,7 +239,15 @@ def imageTexts(img, lineboxes, hmargin=0, vmargin=0):
                     if results:
                         txt = "%s: %s" % (results[0].type, results[0].data)
                 else:
-                    txt = pytesseract.image_to_string(Image.fromarray(roi), lang="nor")
+                    tools = pyocr.get_available_tools()[:]
+                    for tool in (ocrtools['Cuneiform (sh)'], ocrtools['Tesseract (sh)']):
+                        try:
+                            txt = tool.image_to_string(Image.fromarray(roi), lang='dan',
+                                                       builder=pyocr.builders.TextBuilder())
+                        except:
+                            pass
+                        if txt:
+                            break
         linetexts.append(txt)
     return linetexts
 
@@ -365,7 +376,7 @@ if __name__ == "__main__":
             ax.imshow(objgrad, cmap=transparent0_cmap("autumn"))
             ax.imshow(borders, cmap=transparent0_cmap("winter"))
             fig.savefig(output)
-            fig.close()
+            plt.close(fig)
             
         except Exception, e:
             print json.dumps({"path": path, "error": str(e), "traceback": traceback.format_exc()})
