@@ -1,26 +1,40 @@
-from flask import Flask, Response, request
 import os.path
-import labeler
-import labelreader
 import uuid
 import json
+from binascii import a2b_base64
+
+from flask import Flask, Response, request, flash, redirect
+
+import labeler
+import labelreader
+
 
 app = Flask(__name__, static_folder=None)
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
-    file = request.files['file']
-    if file.filename == '':
+    data_uri = request.form.get('data')
+    if not data_uri:
         flash('No selected file')
         return redirect(request.url)
-    if file:
-        ext = os.path.splitext(file.filename)[1]
-        path = os.path.join("uploads", "%s%s" % (uuid.uuid4(), ext))
-        file.save(path)
-        return Response(json.dumps([{"bbox": bbox, "texts": labelreader.mergeLineBoxesAndtexts(lineboxes, linetexts)}
-                                    for bbox, image, lineboxes, linetexts, borders, objgrad in labeler.readLabels(path)],
-                                   ensure_ascii=False).encode("utf-8"),
-                        mimetype="application/json")
+
+    info, data = data_uri.split(',')
+    _, info = info.split(":")
+    mimetype, encoding = info.split(";")
+    if mimetype != "image/png" or encoding != "base64":
+        flash('Photo is in wrong format')
+        return redirect(request.url)
+
+    binary_data = a2b_base64(data)
+    path = os.path.join("uploads", "%s.%s" % (uuid.uuid4(), "png"))
+
+    with open(path, 'wb') as image_file:
+        image_file.write(binary_data)
+
+    return Response(json.dumps([{"bbox": bbox, "texts": labelreader.mergeLineBoxesAndtexts(lineboxes, linetexts)}
+                                for bbox, image, lineboxes, linetexts, borders, objgrad in labeler.readLabels(path)],
+                                ensure_ascii=False).encode("utf-8"),
+                    mimetype="application/json")
 
 @app.route('/')
 @app.route('/<path:path>')

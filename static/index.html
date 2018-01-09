@@ -1,10 +1,20 @@
 <html>
   <head>
+    <style>
+        #video {
+          width:100%;
+          display: block;
+        }
+    </style>
+    <script
+      src="https://code.jquery.com/jquery-3.2.1.min.js"
+      integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+      crossorigin="anonymous">
+    </script>
   </head>
   <body>
-    <form action="/analyze" method="post" enctype="multipart/form-data">
-      <input type="file" name="file" id="file">
-      <input type="submit" value="Upload Image" name="submit">
-    </form>
-  </body>  
+    <video id="video"></video>
+    <input id="b" type="button" disabled="true" value="Take Picture"></input>
+  </body>
+  <script src="main.js" /></script>
 </html>
