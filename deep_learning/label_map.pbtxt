@@ -1,0 +1,16 @@
+item {
+  id: 1
+  name: 'rema'
+}
+item {
+  id: 2
+  name: 'coop'
+}
+item {
+  id: 3
+  name: 'spar'
+}
+item {
+  id: 4
+  name: 'kiwi'
+}
