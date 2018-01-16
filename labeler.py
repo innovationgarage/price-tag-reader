@@ -8,11 +8,20 @@ import matplotlib.patches as patches
 import labelreader
 import json
 import traceback
+import deep_learning.my_model_inference
 
-def readLabelsImage(img, cascade_path="OpenCV_cascades/HAAR_all_14/cascade.xml", scale_factor=1.3, min_neighbors=5, **kw):
+def findLabelsHaar(img, cascade_path="OpenCV_cascades/HAAR_all_14/cascade.xml", scale_factor=1.3, min_neighbors=5, **kw):
     cascade = cv2.CascadeClassifier(cascade_path)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    tags = cascade.detectMultiScale(gray, scale_factor, min_neighbors)
+    return cascade.detectMultiScale(gray, scale_factor, min_neighbors)
+
+
+def readLabelsImage(img, algorithm="tfobj", **kw):
+    if algorithm=="tfobj":
+        tags = deep_learning.my_model_inference.find_labels(img, **kw)
+    else:
+        tags = findLabelsHaar(img, cascade_path, scale_factor, min_neighbors, **kw)
+    bbox = [bbox for bbox in tags][0]    
     return [(tuple(int(x) for x in bbox),) + labelreader.readLabelImage(labelreader.cut_image(img, bbox), **kw)
             for bbox in tags]
 
